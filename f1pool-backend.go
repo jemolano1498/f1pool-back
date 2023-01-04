@@ -27,6 +27,16 @@ const (
 
 // DB set up
 func setupDB() *sql.DB {
+	mustGetenv := func(k string) string {
+		v := os.Getenv(k)
+		if v == "" {
+			log.Fatalf("Warning: %s environment variable not set.", k)
+		}
+		return v
+	}
+	var (
+		DB_HOST = mustGetenv("IP_HOST") // e.g. 'my-db-user'
+	)
 	dbinfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
 		DB_HOST,
 		DB_PORT,
@@ -166,10 +176,10 @@ func checkErr(err error) {
 
 // response and request handlers
 func GetMovies(w http.ResponseWriter, r *http.Request) {
-	//db := setupDB()
-	db, err := connectWithConnector()
+	db := setupDB()
 
-	checkErr(err)
+	//db, err := connectWithConnector()
+	//checkErr(err)
 
 	printMessage("Getting movies...")
 
