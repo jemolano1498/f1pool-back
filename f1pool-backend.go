@@ -5,14 +5,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/stdlib"
 	"log"
 	"net"
 	"net/http"
 	"os"
 
 	"cloud.google.com/go/cloudsqlconn"
-	"github.com/go-sql-driver/mysql"
-
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 )
@@ -58,33 +58,47 @@ func connectWithConnector() (*sql.DB, error) {
 		dbName                 = DB_NAME                       // e.g. 'my-database'
 		instanceConnectionName = "f1pools:europe-west4:f1pool" // e.g. 'project:region:instance'
 		usePrivate             = "10.115.112.3"
-		dbUser                 = mustGetenv("DB_USER") // e.g. 'my-db-user'
+		dbUser                 = mustGetenv("DB_USER")                                // e.g. 'my-db-user'
+		dbIAMUser              = "368596771754-compute@developer.gserviceaccount.com" // e.g. 'sa-name@project-id.iam'
+
+		//dbUser                 = os.Getenv("DB_USER")                   // e.g. 'my-db-user'
+		//dbIAMUser              = os.Getenv("DB_IAM_USER")               // e.g. 'sa-name@project-id.iam'
 		//dbPwd                  = mustGetenv("DB_PASS")                  // e.g. 'my-db-password'
 		//dbName                 = mustGetenv("DB_NAME")                  // e.g. 'my-database'
 		//instanceConnectionName = mustGetenv("INSTANCE_CONNECTION_NAME") // e.g. 'project:region:instance'
 		//usePrivate             = os.Getenv("PRIVATE_IP")
 	)
 
-	d, err := cloudsqlconn.NewDialer(context.Background())
+	if dbUser == "" && dbIAMUser == "" {
+		log.Fatal("Warning: One of DB_USER or DB_IAM_USER must be defined")
+	}
+
+	dsn := fmt.Sprintf("user=%s password=%s database=%s", dbUser, dbPwd, dbName)
+	config, err := pgx.ParseConfig(dsn)
 	if err != nil {
-		return nil, fmt.Errorf("cloudsqlconn.NewDialer: %v", err)
+		return nil, err
 	}
-	var opts []cloudsqlconn.DialOption
+	var opts []cloudsqlconn.Option
+	if dbIAMUser != "" {
+		opts = append(opts, cloudsqlconn.WithIAMAuthN())
+	}
 	if usePrivate != "" {
-		opts = append(opts, cloudsqlconn.WithPrivateIP())
+		opts = append(opts, cloudsqlconn.WithDefaultDialOptions(cloudsqlconn.WithPrivateIP()))
 	}
-	mysql.RegisterDialContext("cloudsqlconn",
-		func(ctx context.Context, addr string) (net.Conn, error) {
-			return d.Dial(ctx, instanceConnectionName, opts...)
-		})
+	d, err := cloudsqlconn.NewDialer(context.Background(), opts...)
+	if err != nil {
+		return nil, err
+	}
+	// Use the Cloud SQL connector to handle connecting to the instance.
+	// This approach does *NOT* require the Cloud SQL proxy.
+	config.DialFunc = func(ctx context.Context, network, instance string) (net.Conn, error) {
+		return d.Dial(ctx, instanceConnectionName)
+	}
+	dbURI := stdlib.RegisterConnConfig(config)
 
-	dbURI := fmt.Sprintf("%s:%s@cloudsqlconn(localhost:3306)/%s?parseTime=true",
-		dbUser, dbPwd, dbName)
+	fmt.Println(dbURI)
 
-	fmt.Println("Connecting to %s:%s@cloudsqlconn(localhost:3306)/%s?parseTime=true",
-		dbUser, dbPwd, dbName)
-
-	dbPool, err := sql.Open("mysql", dbURI)
+	dbPool, err := sql.Open("pgx", dbURI)
 	if err != nil {
 		return nil, fmt.Errorf("sql.Open: %v", err)
 	}
