@@ -1,18 +1,13 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/stdlib"
 	"log"
-	"net"
 	"net/http"
 	"os"
 
-	"cloud.google.com/go/cloudsqlconn"
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 )
@@ -64,12 +59,10 @@ func connectWithConnector() (*sql.DB, error) {
 	// keep secrets safe.
 	var (
 		//dbUser                 = DB_USER                       // e.g. 'my-db-user'
-		dbPwd                  = DB_PASSWORD                   // e.g. 'my-db-password'
-		dbName                 = DB_NAME                       // e.g. 'my-database'
-		instanceConnectionName = "f1pools:europe-west4:f1pool" // e.g. 'project:region:instance'
-		usePrivate             = "10.115.112.3"
-		dbUser                 = mustGetenv("DB_USER")                                // e.g. 'my-db-user'
-		dbIAMUser              = "368596771754-compute@developer.gserviceaccount.com" // e.g. 'sa-name@project-id.iam'
+		dbPwd          = DB_PASSWORD                             // e.g. 'my-db-password'
+		dbName         = DB_NAME                                 // e.g. 'my-database'
+		unixSocketPath = "/cloudsql/f1pools:europe-west4:f1pool" // e.g. 'project:region:instance'
+		dbUser         = mustGetenv("DB_USER")                   // e.g. 'my-db-user'
 
 		//dbUser                 = os.Getenv("DB_USER")                   // e.g. 'my-db-user'
 		//dbIAMUser              = os.Getenv("DB_IAM_USER")               // e.g. 'sa-name@project-id.iam'
@@ -79,39 +72,17 @@ func connectWithConnector() (*sql.DB, error) {
 		//usePrivate             = os.Getenv("PRIVATE_IP")
 	)
 
-	if dbUser == "" && dbIAMUser == "" {
-		log.Fatal("Warning: One of DB_USER or DB_IAM_USER must be defined")
-	}
+	dbURI := fmt.Sprintf("user=%s password=%s database=%s host=%s",
+		dbUser, dbPwd, dbName, unixSocketPath)
 
-	dsn := fmt.Sprintf("user=%s password=%s database=%s", dbUser, dbPwd, dbName)
-	config, err := pgx.ParseConfig(dsn)
-	if err != nil {
-		return nil, err
-	}
-	var opts []cloudsqlconn.Option
-	if dbIAMUser != "" {
-		opts = append(opts, cloudsqlconn.WithIAMAuthN())
-	}
-	if usePrivate != "" {
-		opts = append(opts, cloudsqlconn.WithDefaultDialOptions(cloudsqlconn.WithPrivateIP()))
-	}
-	d, err := cloudsqlconn.NewDialer(context.Background(), opts...)
-	if err != nil {
-		return nil, err
-	}
-	// Use the Cloud SQL connector to handle connecting to the instance.
-	// This approach does *NOT* require the Cloud SQL proxy.
-	config.DialFunc = func(ctx context.Context, network, instance string) (net.Conn, error) {
-		return d.Dial(ctx, instanceConnectionName)
-	}
-	dbURI := stdlib.RegisterConnConfig(config)
-
-	fmt.Println(dbURI)
-
+	// dbPool is the pool of database connections.
 	dbPool, err := sql.Open("pgx", dbURI)
 	if err != nil {
 		return nil, fmt.Errorf("sql.Open: %v", err)
 	}
+
+	// ...
+
 	return dbPool, nil
 }
 
@@ -176,10 +147,10 @@ func checkErr(err error) {
 
 // response and request handlers
 func GetMovies(w http.ResponseWriter, r *http.Request) {
-	db := setupDB()
+	//db := setupDB()
 
-	//db, err := connectWithConnector()
-	//checkErr(err)
+	db, err := connectWithConnector()
+	checkErr(err)
 
 	printMessage("Getting movies...")
 
