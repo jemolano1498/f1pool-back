@@ -152,6 +152,8 @@ func GetMovies(w http.ResponseWriter, r *http.Request) {
 	//db := setupDB()
 	db, err := connectWithConnector()
 
+	checkErr(err)
+
 	printMessage("Getting movies...")
 
 	// Get all movies from movies table that don't have movieID = "1"
