@@ -68,8 +68,8 @@ func connectWithConnector() (*sql.DB, error) {
 }
 
 type Movie struct {
-	MovieID   string `json:"movieid"`
-	MovieName string `json:"moviename"`
+	MovieID   string `json:"movie_id"`
+	MovieName string `json:"movie_name"`
 }
 
 type JsonResponse struct {
@@ -82,8 +82,11 @@ func main() {
 	// Init the mux router
 	router := mux.NewRouter()
 
+	// Get OPTIONS
+	router.HandleFunc("/movies/", GetPeopleAPI).Methods("OPTIONS")
+
 	// Get all movies
-	router.HandleFunc("/movies/", GetMovies).Methods("GET", "OPTIONS")
+	router.HandleFunc("/movies/", GetMovies).Methods("GET")
 
 	// Create a movie
 	router.HandleFunc("/movies/", CreateMovie).Methods("POST")
@@ -111,6 +114,16 @@ func checkErr(err error) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func GetPeopleAPI(w http.ResponseWriter, r *http.Request) {
+
+	//Allow CORS here By * or specific origin
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	// return "OKOK"
+	json.NewEncoder(w).Encode("OKOK")
 }
 
 // Get all movies
