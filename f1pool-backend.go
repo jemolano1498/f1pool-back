@@ -118,7 +118,7 @@ func checkErr(err error) {
 // Get all movies
 
 // GetMovies response and request handlers
-func GetMovies(w http.ResponseWriter, r *http.Request) {
+func GetMovies(w http.ResponseWriter, _ *http.Request) {
 	db, err := connectWithConnector()
 	checkErr(err)
 
@@ -157,8 +157,16 @@ func GetMovies(w http.ResponseWriter, r *http.Request) {
 
 // CreateMovie response and request handlers
 func CreateMovie(w http.ResponseWriter, r *http.Request) {
-	movieID := r.FormValue("movieid")
-	movieName := r.FormValue("moviename")
+	var movie Movie
+	err := json.NewDecoder(r.Body).Decode(&movie)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	movieID := movie.MovieID
+	movieName := movie.MovieName
 
 	var response = JsonResponse{}
 
@@ -181,7 +189,7 @@ func CreateMovie(w http.ResponseWriter, r *http.Request) {
 		response = JsonResponse{Type: "success", Message: "The movie has been inserted successfully!"}
 	}
 
-	err := json.NewEncoder(w).Encode(response)
+	err = json.NewEncoder(w).Encode(response)
 	checkErr(err)
 }
 
@@ -218,7 +226,7 @@ func DeleteMovie(w http.ResponseWriter, r *http.Request) {
 // Delete all movies
 
 // DeleteMovies response and request handlers
-func DeleteMovies(w http.ResponseWriter, r *http.Request) {
+func DeleteMovies(w http.ResponseWriter, _ *http.Request) {
 	db, err := connectWithConnector()
 	checkErr(err)
 
