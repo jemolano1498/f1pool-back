@@ -82,10 +82,8 @@ func main() {
 	// Init the mux router
 	router := mux.NewRouter()
 
-	// Route handles & endpoints
-
 	// Get all movies
-	router.HandleFunc("/movies/", GetMovies).Methods("GET")
+	router.HandleFunc("/movies/", GetMovies).Methods("GET", "OPTIONS")
 
 	// Create a movie
 	router.HandleFunc("/movies/", CreateMovie).Methods("POST")
@@ -119,6 +117,7 @@ func checkErr(err error) {
 
 // GetMovies response and request handlers
 func GetMovies(w http.ResponseWriter, _ *http.Request) {
+
 	db, err := connectWithConnector()
 	checkErr(err)
 
@@ -148,6 +147,10 @@ func GetMovies(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	var response = JsonResponse{Type: "success", Data: movies}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
 	err = json.NewEncoder(w).Encode(response)
 	checkErr(err)
@@ -188,6 +191,10 @@ func CreateMovie(w http.ResponseWriter, r *http.Request) {
 
 		response = JsonResponse{Type: "success", Message: "The movie has been inserted successfully!"}
 	}
+
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
 	err = json.NewEncoder(w).Encode(response)
 	checkErr(err)
